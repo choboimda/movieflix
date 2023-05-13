@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   runApp(const MyApp());
@@ -19,40 +20,69 @@ class MyApp extends StatelessWidget {
 
 class HomeScreen extends StatelessWidget {
   HomeScreen({super.key});
-  final Future<List<MovieModel>> popularMovies = ApiService.getPopularMovie();
+  static const popularEndpoint = "popular";
+  static const nowPlayingEndpoint = "now-playing";
+  static const comingSoonEndpoint = "coming-soon";
+  final Future<List<MovieModel>> popularMovies =
+      ApiService.getMovie(endpoint: HomeScreen.popularEndpoint);
+  final Future<List<MovieModel>> nowInMovies =
+      ApiService.getMovie(endpoint: HomeScreen.nowPlayingEndpoint);
+  final Future<List<MovieModel>> comingMovies =
+      ApiService.getMovie(endpoint: HomeScreen.comingSoonEndpoint);
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Column(
-        children: [
-          const SizedBox(
-            height: 100,
+      body: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 15),
+        child: SingleChildScrollView(
+          scrollDirection: Axis.vertical,
+          child: Column(
+            children: [
+              const SizedBox(
+                height: 100,
+              ),
+              makeMoviesSection(section: popularEndpoint, isPopular: true),
+              makeMoviesSection(section: nowPlayingEndpoint, isPopular: false),
+              makeMoviesSection(section: comingSoonEndpoint, isPopular: false),
+            ],
           ),
-          makePopularMovies()
-        ],
+        ),
       ),
     );
   }
 
-  Container makePopularMovies() {
+  Container makeMoviesSection(
+      {required String section, required bool isPopular}) {
+    late Future<List<MovieModel>> apiFuture;
+    switch (section) {
+      case popularEndpoint:
+        apiFuture = popularMovies;
+      case nowPlayingEndpoint:
+        apiFuture = nowInMovies;
+      case comingSoonEndpoint:
+        apiFuture = comingMovies;
+    }
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 15),
+      padding: const EdgeInsets.only(bottom: 15),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            "Popular Movies",
-            style: TextStyle(fontSize: 30, fontWeight: FontWeight.w600),
+          Text(
+            section,
+            style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w600),
           ),
           Container(
             padding: const EdgeInsets.only(top: 15),
-            height: 200,
+            height: 220,
             child: FutureBuilder(
-              future: popularMovies,
+              future: apiFuture,
               builder: (context, snapshot) {
                 if (snapshot.hasData) {
-                  return makeList(snapshot);
+                  return makeList(
+                    snapshot: snapshot,
+                    isPopular: isPopular,
+                  );
                 }
                 return const Center(child: CircularProgressIndicator());
               },
@@ -62,23 +92,6 @@ class HomeScreen extends StatelessWidget {
       ),
     );
   }
-}
-
-ListView makeList(AsyncSnapshot<List<MovieModel>> snapshot) {
-  return ListView.separated(
-    scrollDirection: Axis.horizontal,
-    itemCount: snapshot.data!.length,
-    itemBuilder: (context, index) {
-      var movies = snapshot.data![index];
-      return PopularCard(
-        backdropIamge: movies.backdropIamge,
-        id: movies.id,
-      );
-    },
-    separatorBuilder: (context, index) {
-      return const SizedBox(width: 15);
-    },
-  );
 }
 
 class DetailPage extends StatefulWidget {
@@ -143,7 +156,7 @@ class _DetailPageState extends State<DetailPage> {
                                     fontWeight: FontWeight.w600),
                               ),
                             ),
-                            const StarRating(),
+                            StarRating(id: widget.id),
                             Container(
                               padding: const EdgeInsets.symmetric(vertical: 10),
                               child: Text(
@@ -192,14 +205,34 @@ class _DetailPageState extends State<DetailPage> {
 }
 
 class StarRating extends StatefulWidget {
-  const StarRating({super.key});
+  final String id;
+  const StarRating({super.key, required this.id});
 
   @override
   State<StarRating> createState() => _StarRatingState();
 }
 
 class _StarRatingState extends State<StarRating> {
+  late SharedPreferences prefs;
   int _rating = 0;
+
+  Future initPrefs() async {
+    prefs = await SharedPreferences.getInstance();
+    final rating = prefs.getInt(widget.id);
+    if (rating != null) {
+      setState(() {
+        _rating = rating;
+      });
+    } else {
+      await prefs.setInt(widget.id, 0);
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    initPrefs();
+  }
 
   Widget _buildStar(int index) {
     Icon icon;
@@ -210,10 +243,12 @@ class _StarRatingState extends State<StarRating> {
     }
 
     return GestureDetector(
-      onTap: () {
+      onTap: () async {
+        _rating = index + 1;
         setState(() {
-          _rating = index + 1;
+          _rating;
         });
+        await prefs.setInt(widget.id, _rating);
       },
       child: icon,
     );
@@ -228,10 +263,39 @@ class _StarRatingState extends State<StarRating> {
   }
 }
 
-class PopularCard extends StatelessWidget {
+ListView makeList(
+    {required AsyncSnapshot<List<MovieModel>> snapshot,
+    required bool isPopular}) {
+  return ListView.separated(
+    scrollDirection: Axis.horizontal,
+    itemCount: snapshot.data!.length,
+    itemBuilder: (context, index) {
+      var movies = snapshot.data![index];
+      return MovieCard(
+        popular: isPopular,
+        backdropIamge: movies.backdropIamge,
+        id: movies.id,
+        title: movies.title,
+      );
+    },
+    separatorBuilder: (context, index) {
+      return const SizedBox(width: 15);
+    },
+  );
+}
+
+class MovieCard extends StatelessWidget {
+  final String title;
   final String id;
   final String backdropIamge;
-  const PopularCard({super.key, required this.backdropIamge, required this.id});
+  final bool popular;
+  const MovieCard({
+    super.key,
+    required this.backdropIamge,
+    required this.id,
+    required this.popular,
+    required this.title,
+  });
   final String imageBaseUrl = "https://image.tmdb.org/t/p/w500";
 
   @override
@@ -246,29 +310,44 @@ class PopularCard extends StatelessWidget {
         );
       },
       child: Center(
-        child: Container(
-          width: 300,
-          height: 170,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(15),
-            boxShadow: [
-              BoxShadow(
-                spreadRadius: 1,
-                blurRadius: 1,
-                color: Colors.grey.withOpacity(0.7),
-                offset: const Offset(0, 4),
+        child: Column(
+          children: [
+            Container(
+              width: popular ? 300 : 150,
+              height: 150,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(15),
+                boxShadow: [
+                  BoxShadow(
+                    spreadRadius: 1,
+                    blurRadius: 1,
+                    color: Colors.grey.withOpacity(0.7),
+                    offset: const Offset(0, 4),
+                  ),
+                ],
               ),
-            ],
-          ),
-          clipBehavior: Clip.hardEdge,
-          child: Image.network(
-            fit: BoxFit.cover,
-            "$imageBaseUrl/$backdropIamge",
-            headers: const {
-              "User-Agent":
-                  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36",
-            },
-          ),
+              clipBehavior: Clip.hardEdge,
+              child: Image.network(
+                fit: BoxFit.cover,
+                "$imageBaseUrl/$backdropIamge",
+                headers: const {
+                  "User-Agent":
+                      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36",
+                },
+              ),
+            ),
+            !popular
+                ? Padding(
+                    padding: const EdgeInsets.only(top: 10),
+                    child: SizedBox(
+                        width: 150,
+                        child: Text(
+                          title,
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        )),
+                  )
+                : const SizedBox()
+          ],
         ),
       ),
     );
@@ -276,21 +355,21 @@ class PopularCard extends StatelessWidget {
 }
 
 class ApiService {
-  static Future<List<MovieModel>> getPopularMovie() async {
-    List<MovieModel> popularInstance = [];
+  static Future<List<MovieModel>> getMovie({required String endpoint}) async {
+    List<MovieModel> movieInstance = [];
     const String baseUrl = "https://movies-api.nomadcoders.workers.dev";
-    const String popular = "popular";
-    final url = Uri.parse("$baseUrl/$popular");
+    final String endpointUrl = endpoint;
+    final url = Uri.parse("$baseUrl/$endpointUrl");
 
     final response = await http.get(url);
     if (response.statusCode == 200) {
       final movies = jsonDecode(response.body)["results"];
       for (var movie in movies) {
-        popularInstance.add(
+        movieInstance.add(
           MovieModel.fromJson(movie),
         );
       }
-      return popularInstance;
+      return movieInstance;
     }
     throw Error();
   }
