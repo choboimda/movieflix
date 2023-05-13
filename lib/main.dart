@@ -114,7 +114,7 @@ class _DetailPageState extends State<DetailPage> {
               fit: StackFit.expand,
               children: [
                 Image.network(
-                    color: Colors.black38,
+                    color: Colors.black54,
                     colorBlendMode: BlendMode.darken,
                     fit: BoxFit.cover,
                     "https://image.tmdb.org/t/p/w500/${snapshot.data!.posterImage}"),
@@ -127,9 +127,50 @@ class _DetailPageState extends State<DetailPage> {
                     Flexible(
                       flex: 5,
                       child: Container(
-                        child: const Column(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            StarRating(),
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 10),
+                              child: Text(
+                                snapshot.data!.title,
+                                style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 25,
+                                    fontWeight: FontWeight.w600),
+                              ),
+                            ),
+                            const StarRating(),
+                            Container(
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              child: Text(
+                                snapshot.data!.genres.join(", "),
+                                style: TextStyle(
+                                    color: Colors.white.withOpacity(0.8),
+                                    fontWeight: FontWeight.w500),
+                              ),
+                            ),
+                            const Padding(
+                              padding: EdgeInsets.fromLTRB(0, 50, 0, 10),
+                              child: Text(
+                                "Story Line",
+                                style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 25,
+                                    fontWeight: FontWeight.w500),
+                              ),
+                            ),
+                            Text(
+                              snapshot.data!.overview,
+                              style: const TextStyle(
+                                  color: Colors.white,
+                                  height: 1.6,
+                                  fontWeight: FontWeight.w500,
+                                  fontSize: 15),
+                            ),
                           ],
                         ),
                       ),
@@ -165,7 +206,7 @@ class _StarRatingState extends State<StarRating> {
     if (index < _rating) {
       icon = const Icon(Icons.star, color: Colors.yellow);
     } else {
-      icon = const Icon(Icons.star_border, color: Colors.grey);
+      icon = const Icon(Icons.star, color: Colors.grey);
     }
 
     return GestureDetector(
@@ -181,7 +222,7 @@ class _StarRatingState extends State<StarRating> {
   @override
   Widget build(BuildContext context) {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
+      mainAxisAlignment: MainAxisAlignment.start,
       children: List.generate(5, (index) => _buildStar(index)),
     );
   }
