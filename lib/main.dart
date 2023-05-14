@@ -55,13 +55,20 @@ class HomeScreen extends StatelessWidget {
   Container makeMoviesSection(
       {required String section, required bool isPopular}) {
     late Future<List<MovieModel>> apiFuture;
+    late String sectionTitile;
     switch (section) {
       case popularEndpoint:
         apiFuture = popularMovies;
+        sectionTitile = "Popular Movies";
+        break;
       case nowPlayingEndpoint:
         apiFuture = nowInMovies;
+        sectionTitile = "Now in Cinemas";
+        break;
       case comingSoonEndpoint:
         apiFuture = comingMovies;
+        sectionTitile = "Coming soon";
+        break;
     }
     return Container(
       padding: const EdgeInsets.only(bottom: 15),
@@ -69,7 +76,7 @@ class HomeScreen extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            section,
+            sectionTitile,
             style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w600),
           ),
           Container(
